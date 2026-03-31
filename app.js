@@ -75,6 +75,10 @@ function clearSelectedPoints() {
     setText("statusText", "Select point 1");
     setText("point1", "Selected point 1: ");
     setText("point2", "Selected point 2: ");
+    hide("elevation1Input");
+    hide("elevation2Input");
+    setText("elevation1Note", "");
+    setText("elevation2Note", "");
 }
 
 // make new AdvancedMarkerElement at a specific {lat, lon}
@@ -95,14 +99,32 @@ function updateUIAfterPointSelection() {
     if (points.length === 1) {
         setText("statusText", "Select point 2");
         setText("point1", `Selected Point 1: ${points[0].lat}, ${points[0].lng}`);
+        setText("elevation1Note", 'Elevation of Point 1:');
+        setValue("elevation1Input", points[0].elevation);
+        unhide("elevation1Input");
     } else if (points.length === 2) {
         setText("statusText", "Both points selected");
         setText("point2", `Selected Point 2: ${points[1].lat}, ${points[1].lng}`);
+        setText("elevation2Note", 'Elevation of Point 2:');
+        setValue("elevation2Input", points[1].elevation);
+        unhide("elevation2Input");
     }
+}
+
+function setValue(elementId, text) {
+    document.getElementById(elementId).value = text;
 }
 
 function setText(elementId, text) {
     document.getElementById(elementId).textContent = text;
+}
+
+function unhide(elementId) {
+    document.getElementById(elementId).style.display = "inline-block";
+}
+
+function hide(elementId) {
+    document.getElementById(elementId).style.display = null;
 }
 
 async function getLocationElevation(location) {

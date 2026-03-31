@@ -26,15 +26,29 @@
       height: calc(100% - 100px);
       width: 100%;
     }
+    .elevationTextBox {
+      display: none;
+    }
   </style>
 </head>
 <body>
-  <div id="topbar">
-    <div id="statusText">Select point 1</div>
-    <div id="point1"> Selected point 1:</div>
-    <div id="point2"> Selected point 2:</div>
-    <button id="clearPointsButton">Clear Selected Points</button>
+<div id="topbar">
+  <div id="statusText">Select point 1</div>
+
+  <div class="pointRow">
+    <span id="point1">Selected Point 1:</span>
+    <span id="elevation1Note"></span>
+    <input type="text" id="elevation1Input" class="elevationTextBox">
   </div>
+
+  <div class="pointRow">
+    <span id="point2">Selected Point 2:</span>
+    <span id="elevation2Note"></span>
+    <input type="text" id="elevation2Input" class="elevationTextBox">
+  </div>
+
+  <button id="clearPointsButton">Clear Selected Points</button>
+</div>
 
   <div id="map"></div>
 
