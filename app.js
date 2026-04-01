@@ -1,9 +1,11 @@
 let map;
 let points = [];
 let markers = [];
+let lines = [];
 let AdvancedMarkerElement;
 let ElevationService;
 let infoWindow;
+let spherical;
 
 // Entrance point (callabck) function - supplied to API URL
 async function initMap() {
@@ -16,6 +18,7 @@ async function initMap() {
     const { Map, InfoWindow } = await google.maps.importLibrary("maps");
     ({ AdvancedMarkerElement } = await google.maps.importLibrary("marker")); // must be enclosed in () to prevent js
     ({ ElevationService } = await google.maps.importLibrary("elevation"));
+    ({ spherical } = await google.maps.importLibrary("geometry"));
     
     const start = randomStart();
 
@@ -25,10 +28,135 @@ async function initMap() {
         mapId: "DEMO_MAP_ID", 
     });
 
+    setVisability("interpolateButton", false);
     attachMapClickHandler();
     attachClearButtonClickHandler();
+    attachInterpolateButtonHandler();
+    attachInputListener();
 
     setText("statusText", "Select point 1");
+}
+
+function attachInterpolateButtonHandler(){
+    document.getElementById("interpolateButton").addEventListener("click", hasLineOfSight);
+}
+
+function drawLine(){
+    const line = new google.maps.Polyline({
+        path: [points[0], points[1]],
+        geodesic: true,
+        strokeColor: "#2563eb",
+        strokeOpacity: 1.0,
+        strokeWeight: 3,
+    });
+
+    lines.push(line);
+
+    line.setMap(map);
+}
+
+async function hasLineOfSight() {
+    setVisability("interpolateButton", false);
+
+    try {
+        removeLines();
+        drawLine();
+
+        const from = points[0];
+        const to = points[1];
+        const numSamples = Number(getValue("slider"));
+
+        const elevator = new ElevationService();
+        const totalDistance = spherical.computeDistanceBetween(from, to);
+        const earthRadius = 6378137; // meters
+
+        // heights above ground entered by user
+        const fromHeight = Number(getValue("elevation1Input")) || 0;
+        const toHeight = Number(getValue("elevation2Input")) || 0;
+
+        const { results } = await elevator.getElevationAlongPath({
+            path: [from, to],
+            samples: numSamples + 2, // includes endpoints
+        });
+
+        if (!results || results.length < 2) {
+            console.log("Could not retrieve elevation profile.");
+            return false;
+        }
+
+        const fromGround = results[0].elevation;
+        const toGround = results[results.length - 1].elevation;
+
+        const fromEye = fromGround + fromHeight;
+        const toEye = toGround + toHeight;
+
+        console.log("LOS check starting...", {
+            from,
+            to,
+            numSamples,
+            totalDistance,
+            fromGround,
+            toGround,
+            fromHeight,
+            toHeight,
+            fromEye,
+            toEye
+        });
+
+        for (let i = 1; i < results.length - 1; i++) {
+            const fraction = i / (results.length - 1);
+            const distance = totalDistance * fraction;
+            const terrainElevation = results[i].elevation;
+
+            // straight line height between endpoints
+            const lineHeight = fromEye + (toEye - fromEye) * fraction;
+
+            // Earth curvature drop at this point
+            const curvatureDrop = (distance * (totalDistance - distance)) / (2 * earthRadius);
+
+            // max terrain height allowed for visibility
+            const visibleLimit = lineHeight - curvatureDrop;
+
+            console.log(`Sample ${i}/${results.length - 2}`, {
+                lat: results[i].location.lat(),
+                lng: results[i].location.lng(),
+                distance,
+                terrainElevation,
+                lineHeight,
+                curvatureDrop,
+                visibleLimit
+            });
+
+            if (terrainElevation > visibleLimit) {
+                console.log("LOS blocked.", {
+                    blockedAtSample: i,
+                    blockedDistance: distance,
+                    terrainElevation,
+                    visibleLimit
+                });
+                return false;
+            }
+        }
+
+        console.log("LOS clear.");
+        return true;
+    } finally {
+        setVisability("interpolateButton", true);
+    }
+}
+
+function removeLines(){
+    for(let i = 0; i < lines.length; i++){
+        lines[i].setMap(null);
+    }
+}
+
+function setVisability(element, vis){
+    document.getElementById(element).disabled = !vis;
+}
+
+function getValue(element){
+    return document.getElementById(element).value;
 }
 
 // generate random starting coords for map render
@@ -72,6 +200,8 @@ function attachClearButtonClickHandler() {
 
 function clearSelectedPoints() {
     points = [];
+    console.log("Clearing points, internal points list now: ", points)
+    deleteMarkers(); // remove placed map markers
     setText("statusText", "Select point 1");
     setText("point1", "Selected point 1: ");
     setText("point2", "Selected point 2: ");
@@ -79,15 +209,45 @@ function clearSelectedPoints() {
     hide("elevation2Input");
     setText("elevation1Note", "");
     setText("elevation2Note", "");
+    setVisability("interpolateButton", false);
+    setVisability("slider", false);
+    removeLines();
+}
+
+function attachInputListener() {
+    const input1 = document.getElementById("elevation1Input");
+
+    input1.addEventListener("keydown", function (event) {
+        if (event.key === "Enter") {
+            const value = input1.value;
+            handleSubmit(value, 0);
+        }
+    });
+
+    const input2 = document.getElementById("elevation2Input");
+
+    input2.addEventListener("keydown", function (event) {
+        if (event.key === "Enter") {
+            const value = input2.value;
+            handleSubmit(value, 1);
+        }
+    });
+}
+
+function handleSubmit(value, pointNum) {
+    console.log(`Entered value ${value} for point: `, points[pointNum]);
+    points[pointNum].elevation = value; // reassign elevation
+    console.log(`Changed elevation to ${points[pointNum].elevation} for point`, pointNum+1);
 }
 
 // make new AdvancedMarkerElement at a specific {lat, lon}
 function addMarker(point) {
-    new AdvancedMarkerElement({
+    const marker = new AdvancedMarkerElement({
         map: map,
         position: point,
-        title: `Point ${points.length}`,
+        title: `Point ${points.length}: `,
     });
+    markers.push(marker);
 }
 
 function addPoint(point) {
@@ -108,7 +268,27 @@ function updateUIAfterPointSelection() {
         setText("elevation2Note", 'Elevation of Point 2:');
         setValue("elevation2Input", points[1].elevation);
         unhide("elevation2Input");
+        setVisability("interpolateButton", true);
+        setVisability("slider", true);
     }
+}
+
+// Sets the map on all markers in the array.
+function setMapOnAll(map) {
+  for (let i = 0; i < markers.length; i++) {
+    markers[i].setMap(map);
+  }
+}
+
+// Removes the markers from the map, but keeps them in the array.
+function hideMarkers() {
+  setMapOnAll(null);
+}
+
+// Deletes all markers in the array by removing references to them.
+function deleteMarkers() {
+  hideMarkers();
+  markers = [];
 }
 
 function setValue(elementId, text) {
@@ -151,3 +331,7 @@ async function getLocationElevation(location) {
 }
 
 window.initMap = initMap;
+
+// TODO:
+//  Remove markers on clear points
+//  Sample points along straight line between points
