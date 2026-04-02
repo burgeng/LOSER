@@ -91,17 +91,17 @@
   <div class="pointRow">
     <span id="point1">Selected Point 1:</span>
     <span id="elevation1Note"></span>
-    <input type="text" id="elevation1Input" class="elevationTextBox">
+    <input type="text" id="elevation1Input" class="elevationTextBox", value="0">
   </div>
 
   <div class="pointRow">
     <span id="point2">Selected Point 2:</span>
     <span id="elevation2Note"></span>
-    <input type="text" id="elevation2Input" class="elevationTextBox">
+    <input type="text" id="elevation2Input" class="elevationTextBox", value="0">
   </div>
 
   <button id="clearPointsButton">Clear Selected Points</button>
-  <button id="interpolateButton">Interpolate between points</button>
+  <button id="interpolateButton">Check visibility!</button>
 
   <label for="slider" id="sliderLabel"># of points to interpolate:</label>
   <input type="range" id="slider" min="0" max="500" value="100" oninput="output.textContent = this.value" disabled>

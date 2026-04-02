@@ -1,3 +1,13 @@
+/*******************************************
+TODO:
+- Update elevations to be included in top toolbar, and text boxes reserved for height above ground of observer and target
+- Comment interpolation and visibility code
+- Move elevation textbox under respecctive point 
+    - Mark box as 'Height Above Ground', elevation is language reserved for ground elevation
+        - Also add note saying that if point 1 is just you standing on the ground, put your height in meters
+/******************************************
+*/
+
 let map;
 let points = [];
 let markers = [];
@@ -55,10 +65,21 @@ function drawLine(){
     line.setMap(map);
 }
 
+function changeLineColorSucceed(){
+    lines[0].setOptions({ strokeColor: "#09ff00" });
+    lines[0].setMap(map);
+}
+
+function changeLineColorFailure(){
+    lines[0].setOptions({ strokeColor: "#ff0000" });
+    lines[0].setMap(map);
+}
+
 async function hasLineOfSight() {
     setVisability("interpolateButton", false);
 
     try {
+        // remove lines and draw a new one so lines don't stack up on top of eacvhother
         removeLines();
         drawLine();
 
@@ -87,6 +108,7 @@ async function hasLineOfSight() {
         const fromGround = results[0].elevation;
         const toGround = results[results.length - 1].elevation;
 
+        // get 'total height' - elevation of ground + height of observer or height of object being observed
         const fromEye = fromGround + fromHeight;
         const toEye = toGround + toHeight;
 
@@ -103,18 +125,19 @@ async function hasLineOfSight() {
             toEye
         });
 
+        // check every point sampled 
         for (let i = 1; i < results.length - 1; i++) {
             const fraction = i / (results.length - 1);
-            const distance = totalDistance * fraction;
-            const terrainElevation = results[i].elevation;
+            const distance = totalDistance * fraction; // get distance of this point 
+            const terrainElevation = results[i].elevation; // get elevation of this point
 
-            // straight line height between endpoints
+            // line of sight height above ground
             const lineHeight = fromEye + (toEye - fromEye) * fraction;
 
-            // Earth curvature drop at this point
+            // Earth curvature drop at this distance - effectively how far below the point is below the LOS
             const curvatureDrop = (distance * (totalDistance - distance)) / (2 * earthRadius);
 
-            // max terrain height allowed for visibility
+            // adjusting the straight sight-line height to account for Earth curvature
             const visibleLimit = lineHeight - curvatureDrop;
 
             console.log(`Sample ${i}/${results.length - 2}`, {
@@ -126,19 +149,25 @@ async function hasLineOfSight() {
                 curvatureDrop,
                 visibleLimit
             });
+            
+            const tolerance = 0.5;
 
-            if (terrainElevation > visibleLimit) {
+            // if the terrain height is larger (higher up) than earth-curvature corrected line of sight, view is blocked
+            if (terrainElevation > visibleLimit + tolerance) {
                 console.log("LOS blocked.", {
                     blockedAtSample: i,
                     blockedDistance: distance,
                     terrainElevation,
                     visibleLimit
                 });
+                changeLineColorFailure();
+                addFailureMarker(results[i].location);
                 return false;
             }
         }
 
         console.log("LOS clear.");
+        changeLineColorSucceed();
         return true;
     } finally {
         setVisability("interpolateButton", true);
@@ -149,6 +178,7 @@ function removeLines(){
     for(let i = 0; i < lines.length; i++){
         lines[i].setMap(null);
     }
+    lines = [];
 }
 
 function setVisability(element, vis){
@@ -250,23 +280,64 @@ function addMarker(point) {
     markers.push(marker);
 }
 
+function addFailureMarker(point) {
+    const x = document.createElement("div");
+    x.textContent = "✕";
+    x.style.color = "red";
+    x.style.fontSize = "24px";
+    x.style.fontWeight = "bold";
+    x.style.lineHeight = "24px";
+
+    const marker = new AdvancedMarkerElement({
+        map: map,
+        position: point,
+        title: "LOS blocked here.",
+        content: x,
+    });
+
+    markers.push(marker);
+}
+
 function addPoint(point) {
     points.push(point);
     console.log(`Point ${points.length}:`, point);
 }
 
+function decimalToDMS(value, isLat = true) {
+    const abs = Math.abs(value);
+    const degrees = Math.floor(abs);
+    const minutesFloat = (abs - degrees) * 60;
+    const minutes = Math.floor(minutesFloat);
+    const seconds = ((minutesFloat - minutes) * 60).toFixed(2);
+
+    let direction;
+    if (isLat) {
+        direction = value >= 0 ? "N" : "S";
+    } else {
+        direction = value >= 0 ? "E" : "W";
+    }
+
+    return `${degrees}°${minutes}'${seconds}" ${direction}`;
+}
+
 function updateUIAfterPointSelection() {
     if (points.length === 1) {
         setText("statusText", "Select point 2");
-        setText("point1", `Selected Point 1: ${points[0].lat}, ${points[0].lng}`);
+        let pt1Lat = decimalToDMS(points[0].lat);
+        let pt1Lon = decimalToDMS(points[0].lng, isLat = false);
+        setText("point1", 
+            `Selected Point 1: ${pt1Lat}, ${pt1Lon}, Elevation: ${points[0].elevation.toFixed(2)}m`);
         setText("elevation1Note", 'Elevation of Point 1:');
-        setValue("elevation1Input", points[0].elevation);
+        //setValue("elevation1Input", points[0].elevation);
         unhide("elevation1Input");
     } else if (points.length === 2) {
         setText("statusText", "Both points selected");
-        setText("point2", `Selected Point 2: ${points[1].lat}, ${points[1].lng}`);
+        let pt2Lat = decimalToDMS(points[0].lat);
+        let pt2Lon = decimalToDMS(points[0].lng, isLat = false);
+        setText("point2", 
+            `Selected Point 1: ${pt2Lat}, ${pt2Lon}, Elevation: ${points[1].elevation.toFixed(2)}m`);
         setText("elevation2Note", 'Elevation of Point 2:');
-        setValue("elevation2Input", points[1].elevation);
+        //setValue("elevation2Input", points[1].elevation);
         unhide("elevation2Input");
         setVisability("interpolateButton", true);
         setVisability("slider", true);
