@@ -150,7 +150,7 @@ async function hasLineOfSight() {
                 visibleLimit
             });
             
-            const tolerance = 0.5;
+            const tolerance = 3.0;
 
             // if the terrain height is larger (higher up) than earth-curvature corrected line of sight, view is blocked
             if (terrainElevation > visibleLimit + tolerance) {
