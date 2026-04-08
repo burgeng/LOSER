@@ -401,6 +401,8 @@ async function getLocationElevation(location) {
     }
 }
 
+console.log("app.js loaded");
+
 window.initMap = initMap;
 
 // TODO:
