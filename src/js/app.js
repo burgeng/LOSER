@@ -335,7 +335,7 @@ function updateUIAfterPointSelection() {
         let pt2Lat = decimalToDMS(points[0].lat);
         let pt2Lon = decimalToDMS(points[0].lng, isLat = false);
         setText("point2", 
-            `Selected Point 1: ${pt2Lat}, ${pt2Lon}, Elevation: ${points[1].elevation.toFixed(2)}m`);
+            `Selected Point 2: ${pt2Lat}, ${pt2Lon}, Elevation: ${points[1].elevation.toFixed(2)}m`);
         setText("elevation2Note", 'Elevation of Point 2:');
         //setValue("elevation2Input", points[1].elevation);
         unhide("elevation2Input");
