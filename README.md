@@ -3,6 +3,15 @@
 
 LoSER estimates LoS (Lines of Sight) between two points on Earth, taking into consideration terrain elevation, Earth curvature, and height of observer / target object.
 
+### Usage
+Use a simple Python HTTP server in the LoSER root dir:
+```
+git clone https://github.com/burgeng/LOSER
+cd LOSER
+python3 -m http.server 4173
+```
+Navigate to `htrp://localhost:4173` in your browser to access the app
+
 #### Proof of Concept
 The Comcast Technology Center in Philadelphia, PA is visible from Doylestown, PA.
 * LoSER tells us that this is true:
